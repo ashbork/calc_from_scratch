@@ -140,6 +140,18 @@ class RPNCalculator:
         return tokens
 
     def to_rpn(self, tokens: list[Token]) -> list[Token]:
+        """
+        Converts a list of tokens to RPN.
+
+        Args:
+            tokens (list[Token]): A list of tokens.
+
+        Raises:
+            ParserError: Raised on mismatched parentheses.
+
+        Returns:
+            list[Token]: A list of tokens in RPN.
+        """
         output_q: list[Token] = []
         op_stack: list[OpToken] = []
         for token in tokens:
