@@ -107,6 +107,11 @@ class RPNCalculator:
         """
         return None if self._done() else self.input[self.cursor + 1]
 
+    def _peek_prev(self) -> str | None:
+        if self.cursor - 1 < 0:
+            return None
+        return self.input[self.cursor - 1]
+
     def tokenize_num(self) -> Token:
         """
         Tokenizes a number, looking ahead until it reaches its end, at which point it returns a
@@ -186,34 +191,19 @@ class RPNCalculator:
         Returns:
             list[Token]: A list of tokens.
         """
-        tokens: list[Token] = []
+        self.tokens: list[Token] = []
         while not self._done():
-
             if self._at_cursor in string.digits:
-                tokens.append(self.tokenize_num())
-            elif self._at_cursor in ALL_OPS:
-                tokens.append(self.tokenize_op())
+                self.tokens.append(self.tokenize_num())
+            elif self._at_cursor in ALL_STR_OPS:
+                self.tokens.append(self.tokenize_op())
             elif self._at_cursor in "()":
-                tokens.append(self.tokenize_paren())
+                self.tokens.append(self.tokenize_paren())
             elif self._at_cursor in string.whitespace:
                 self.cursor += 1
             else:
                 raise TokenizerError(f"Expected valid token, got {self._at_cursor}")
-        # if two tokens of the same type are next to each other, raise an error
-        for i in range(len(tokens) - 1):
-            if tokens[i] == ParenToken(ParenKind.Right) or tokens[i] == ParenToken(
-                ParenKind.Right
-            ):
-                continue
-            elif tokens[i + 1] == ParenToken(ParenKind.Right) or tokens[
-                i + 1
-            ] == ParenToken(ParenKind.Right):
-                continue
-            elif isinstance(tokens[i], type(tokens[i + 1])):
-                raise TokenizerError(
-                    f"Token of type {tokens[i]} followed by another of the same type ({tokens[i+1]}) {tokens}."
-                )
-        return tokens
+        return self.tokens
 
     def to_rpn(self, tokens: list[Token]) -> list[Token]:
         """
@@ -246,8 +236,6 @@ class RPNCalculator:
                         op_stack.pop(-1)
 
                 case OpToken() as op:
-                    print(op_stack)
-
                     while op_stack and (
                         op_stack[-1] != ParenToken(ParenKind.Left)
                         and (
@@ -269,7 +257,6 @@ class RPNCalculator:
             if op_stack[-1] == ParenToken(ParenKind.Left):
                 raise ParserError("mismatched parentheses")
             output_q.append(op_stack.pop(-1))
-        print(output_q)
         return output_q
 
     def calculate(self, rpn: list[Token]) -> float:
