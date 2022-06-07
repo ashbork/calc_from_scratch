@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import click
-from src.rpn_calc import RPNCalculator
+from src.calc import RPNCalculator
 
 
 @click.command()
