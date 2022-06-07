@@ -26,6 +26,25 @@ class NumberToken(Token):
         return f"{self.__class__.__name__}({self.val})"
 
 
+class ConstantKind(enum.Enum):
+    PI = 0
+    E = 1
+
+
+class ConstantToken(Token):
+    kind_to_value = {
+        ConstantKind.PI: math.pi,
+        ConstantKind.E: math.e,
+    }
+
+    def __init__(self, kind: ConstantKind) -> None:
+        self.kind = kind
+        self.value = ConstantToken.kind_to_value[kind]
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.kind})"
+
+
 class ParenKind(enum.Enum):
     Left = 0
     Right = 1
@@ -39,6 +58,9 @@ class ParenToken(Token):
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, ParenToken) and self.kind == other.kind
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.kind})"
 
 
 class OpKind(enum.Enum):
@@ -108,9 +130,10 @@ class ParserError(Exception):
 
 
 class RPNCalculator:
-    def __init__(self, to_parse: str) -> None:
+    def __init__(self, to_parse: str, debug: bool = False) -> None:
         self.cursor = 0
         self.input = to_parse.strip()
+        self.debug = debug
 
     @property
     def _at_cursor(self) -> str:
@@ -210,7 +233,22 @@ class RPNCalculator:
         self.cursor += 1
         return token
 
-    def tokenize_func(self) -> Token:
+    def tokenize_constant(self) -> ConstantToken:
+        val = ""
+        while (not self._done()) and self._at_cursor in string.ascii_uppercase:
+            val += self._at_cursor
+            self.cursor += 1
+        match val:
+            case "PI":
+                token = ConstantToken(ConstantKind.PI)
+            case "E":
+                token = ConstantToken(ConstantKind.E)
+            case _:
+                raise TokenizerError(f"Expected mathematical constant, got {val}")
+        self.cursor += 1
+        return token
+
+    def tokenize_func(self) -> FuncToken:
         val = ""
         while (not self._done()) and self._at_cursor in string.ascii_letters:
             val += self._at_cursor
@@ -224,6 +262,8 @@ class RPNCalculator:
                 token = FuncToken(FuncKind.Tan)
             case "log":
                 token = FuncToken(FuncKind.Log)
+            case "ln":
+                token = FuncToken(FuncKind.Ln)
             case "exp":
                 token = FuncToken(FuncKind.Exp)
             case "abs":
@@ -249,12 +289,16 @@ class RPNCalculator:
                 self.tokens.append(self.tokenize_op())
             elif self._at_cursor in "()":
                 self.tokens.append(self.tokenize_paren())
-            elif self._at_cursor in string.ascii_letters:
+            elif self._at_cursor in string.ascii_uppercase:
+                self.tokens.append(self.tokenize_constant())
+            elif self._at_cursor in string.ascii_lowercase:
                 self.tokens.append(self.tokenize_func())
             elif self._at_cursor in string.whitespace:
                 self.cursor += 1
             else:
                 raise TokenizerError(f"Expected valid token, got {self._at_cursor}")
+        if self.debug:
+            print("[1] Tokenizing into: ", self.tokens)
         return self.tokens
 
     def to_rpn(self, tokens: list[Token]) -> list[Token]:
@@ -303,9 +347,11 @@ class RPNCalculator:
                     ):
                         output_q.append(op_stack.pop(-1))
                     op_stack.append(op)
-
                 case NumberToken() as num:
                     output_q.append(num)
+
+                case ConstantToken() as const:
+                    output_q.append(const)
 
                 case FuncToken() as func:
                     op_stack.append(func)
@@ -315,6 +361,8 @@ class RPNCalculator:
             if op_stack[-1] == ParenToken(ParenKind.Left):
                 raise ParserError("mismatched parentheses")
             output_q.append(op_stack.pop(-1))
+        if self.debug:
+            print("[2] Converting to RPN: ", output_q)
         return output_q
 
     def calculate(self, rpn: list[Token]) -> float:
@@ -322,12 +370,15 @@ class RPNCalculator:
         Iterates through the RPN list, and for each token, if it's an operation it performs the operation on the last two numbers in the stack.
         or if it's a number, it pushes it to the stack.
         """
-
+        if self.debug:
+            print("[3] Calculating: ", rpn)
         stack: list[float] = []
         for token in rpn:
             try:
                 match token:
                     case OpToken() as op:
+                        if self.debug:
+                            print("[+] Applying operation: ", op.op.name)
                         if op.op == OpKind.Add:
                             stack.append(stack.pop(-1) + stack.pop(-1))
                         elif op.op == OpKind.Sub:
@@ -347,12 +398,16 @@ class RPNCalculator:
                         else:
                             raise AssertionError("should be unreachable")
                     case NumberToken() as num:
+                        if self.debug:
+                            print("[+] Adding number to stack: ", num)
                         stack.append(float(num.val))
                     case FuncToken() as func:
+                        if self.debug:
+                            print("[+] Applying function ", func.kind.name)
                         if func.kind == FuncKind.Sin:
-                            stack.append(math.sin(stack.pop(-1)))
+                            stack.append(round(math.sin(stack.pop(-1))))
                         elif func.kind == FuncKind.Cos:
-                            stack.append(math.cos(stack.pop(-1)))
+                            stack.append(round(math.cos(stack.pop(-1))))
                         elif func.kind == FuncKind.Tan:
                             stack.append(math.tan(stack.pop(-1)))
                         elif func.kind == FuncKind.Ln:
@@ -367,10 +422,13 @@ class RPNCalculator:
                             stack.append(math.sqrt(stack.pop(-1)))
                         else:
                             raise AssertionError("should be unreachable")
+                    case ConstantToken() as const:
+                        if self.debug:
+                            print("[+] Adding constant to stack: ", const, const.value)
+                        stack.append(const.value)
                     case _:
                         raise AssertionError("unreachable")
             except IndexError:
-
                 raise ParserError("too many operators")
         return stack[-1]
 
