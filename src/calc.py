@@ -13,6 +13,21 @@ class Token(ABC):
         return f"{self.__class__.__name__}()"
 
 
+class ParenKind(enum.Enum):
+    Left = 0
+    Right = 1
+
+
+class ParenToken(Token):
+    def __init__(self, kind: ParenKind):
+        self.assoc = Assoc.Left
+        self.precedence = 0
+        self.kind = kind
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, ParenToken) and self.kind == other.kind
+
+
 class NumberToken(Token):
     def __init__(self, val: str) -> None:
         self.val = val
@@ -30,7 +45,7 @@ class OpToken(Token):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.op})"
 
-    def __eq__(self, other: Token) -> bool:  # type: ignore
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, OpToken):
             return self.op == other.op
         return False
@@ -42,8 +57,8 @@ OP_PROPERTIES = {
     "+": (2, Assoc.Left),
     "-": (2, Assoc.Left),
     "^": (4, Assoc.Right),
-    "(": (0, Assoc.Left),
-    ")": (0, Assoc.Left),
+    # "(": (0, Assoc.Left),
+    # ")": (0, Assoc.Left),
 }
 ALL_OPS = OP_PROPERTIES.keys()
 
@@ -118,6 +133,22 @@ class RPNCalculator:
         self.cursor += 1
         return token
 
+    def tokenize_paren(self) -> Token:
+        """
+        Tokenizes a parenthesis.
+
+        Returns:
+            Token: A parenthesis token.
+        """
+        if self._at_cursor == "(":
+            token = ParenToken(ParenKind.Left)
+        elif self._at_cursor == ")":
+            token = ParenToken(ParenKind.Right)
+        else:
+            raise TokenizerError(f"Expected ( or ), got {self._at_cursor}")
+        self.cursor += 1
+        return token
+
     def tokenize(self) -> list[Token]:
         """
         Tokenizes the input string.
@@ -132,17 +163,21 @@ class RPNCalculator:
                 tokens.append(self.tokenize_num())
             elif self._at_cursor in ALL_OPS:
                 tokens.append(self.tokenize_op())
+            elif self._at_cursor in "()":
+                tokens.append(self.tokenize_paren())
             elif self._at_cursor in string.whitespace:
                 self.cursor += 1
             else:
                 raise TokenizerError(f"Expected valid token, got {self._at_cursor}")
         # if two tokens of the same type are next to each other, raise an error
         for i in range(len(tokens) - 1):
-            if tokens[i] == OpToken("(") or tokens[i] == OpToken(")"):  # ignore
+            if tokens[i] == ParenToken(ParenKind.Right) or tokens[i] == ParenToken(
+                ParenKind.Right
+            ):
                 continue
-            elif tokens[i + 1] == OpToken("(") or tokens[i + 1] == OpToken(
-                ")"
-            ):  # ignore
+            elif tokens[i + 1] == ParenToken(ParenKind.Right) or tokens[
+                i + 1
+            ] == ParenToken(ParenKind.Right):
                 continue
             elif isinstance(tokens[i], type(tokens[i + 1])):
                 raise TokenizerError(
@@ -164,43 +199,44 @@ class RPNCalculator:
             list[Token]: A list of tokens in RPN.
         """
         output_q: list[Token] = []
-        op_stack: list[OpToken] = []
+        op_stack: list[ParenToken | OpToken] = []
         for token in tokens:
             match token:
-                case OpToken() as op:
-                    print(op_stack)
-                    if op.op == "(":
-                        op_stack.append(op)
-                    elif op.op == ")":
+                case ParenToken() as paren:
+                    if paren.kind == ParenKind.Left:
+                        op_stack.append(paren)
+                    elif paren.kind == ParenKind.Right:
                         try:
-                            while op_stack[-1].op != "(":
+                            while op_stack[-1] != ParenToken(ParenKind.Left):
                                 output_q.append(op_stack.pop(-1))
                         except IndexError:
                             raise ParserError("mismatched parentheses")
-                        if op_stack[-1].op != "(":
+                        if op_stack[-1] != ParenToken(ParenKind.Left):
                             raise ParserError("mismatched parentheses")
                         op_stack.pop(-1)
 
-                    else:
-                        while op_stack and (
-                            op_stack[-1] is not OpToken("(")
-                            and (
-                                op_stack[-1].precedence > op.precedence
-                                or (
-                                    op_stack[-1].precedence == op
-                                    and op.associativity == Assoc.Left
-                                )
+                case OpToken() as op:
+                    print(op_stack)
+
+                    while op_stack and (
+                        op_stack[-1] != ParenToken(ParenKind.Left)
+                        and (
+                            op_stack[-1].precedence > op.precedence
+                            or (
+                                op_stack[-1].precedence == op
+                                and op.associativity == Assoc.Left
                             )
-                        ):
-                            output_q.append(op_stack.pop(-1))
-                        op_stack.append(op)
-                    pass
+                        )
+                    ):
+                        output_q.append(op_stack.pop(-1))
+                    op_stack.append(op)
+
                 case NumberToken() as num:
                     output_q.append(num)
                 case _:
                     raise AssertionError("unreachable")
         while op_stack:
-            if op_stack[-1] == OpToken("("):
+            if op_stack[-1] == ParenToken(ParenKind.Left):
                 raise ParserError("mismatched parentheses")
             output_q.append(op_stack.pop(-1))
         print(output_q)
