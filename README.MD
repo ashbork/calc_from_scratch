@@ -2,7 +2,7 @@
 
 This little program is a calculator that can do basic math. I made it to learn a bit about parsing, tokenizing and the reverse Polish notation.
 It doesn't catch all of the possible mistakes one might make and won't handle arbitrary input without issues. It doesn't support functions either,
-but I may work on that later.
+but I may work on that later. There's way too much effort put into the external utilities like tests and stuff - this project doesn't deserve that.
 
 ## Start guide
 
@@ -17,7 +17,7 @@ python run.py <expression>
 
 - Add support for functions
 - Add support for variables?
-- Make a GUI
+- Make a GUI (maybe a web app with Flask?)
 - Refactor the code to be more readable
 
 ~~Probably not, though.~~
