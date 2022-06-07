@@ -30,7 +30,7 @@ class OpToken(Token):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.op})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Token) -> bool:  # type: ignore
         if isinstance(other, OpToken):
             return self.op == other.op
         return False
@@ -200,7 +200,7 @@ class RPNCalculator:
                 case _:
                     raise AssertionError("unreachable")
         while op_stack:
-            if op_stack[-1] is OpToken("("):
+            if op_stack[-1] == OpToken("("):
                 raise ParserError("mismatched parentheses")
             output_q.append(op_stack.pop(-1))
         print(output_q)
@@ -229,13 +229,13 @@ class RPNCalculator:
                             exp = stack.pop(-1)
                             stack.append(stack.pop(-1) ** exp)
                         else:
-                            raise AssertionError("unreachable")
+                            raise AssertionError("should be unreachable")
                     case NumberToken() as num:
                         stack.append(float(num.val))
                     case _:
                         raise AssertionError("unreachable")
             except IndexError:
-                raise ParserError("stack underflow - too many operators")
+                raise ParserError("too many operators")
         return stack[-1]
 
     def run(self) -> float:
