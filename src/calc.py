@@ -382,10 +382,7 @@ class RPNCalculator:
                         if op.op == OpKind.Add:
                             stack.append(stack.pop(-1) + stack.pop(-1))
                         elif op.op == OpKind.Sub:
-                            if len(stack) < 2:
-                                stack[-1] = -stack[-1]
-                            else:
-                                stack.append(-stack.pop(-1) + stack.pop(-1))
+                            stack.append(-stack.pop(-1) + stack.pop(-1))
                         elif op.op == OpKind.Mul:
                             stack.append(stack.pop(-1) * stack.pop(-1))
                         elif op.op == OpKind.Div:
