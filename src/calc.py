@@ -1,3 +1,4 @@
+import math
 import string
 import enum
 from abc import ABC
@@ -9,8 +10,20 @@ class Assoc(enum.Enum):
 
 
 class Token(ABC):
+    def __init__(self):
+        self.precedence = 0
+        self.associativity = Assoc.Left
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+
+class NumberToken(Token):
+    def __init__(self, val: str) -> None:
+        self.val = val
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.val})"
 
 
 class ParenKind(enum.Enum):
@@ -26,14 +39,6 @@ class ParenToken(Token):
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, ParenToken) and self.kind == other.kind
-
-
-class NumberToken(Token):
-    def __init__(self, val: str) -> None:
-        self.val = val
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.val})"
 
 
 class OpKind(enum.Enum):
@@ -71,8 +76,27 @@ OP_PROPERTIES = {
 }
 ALL_OPS = OP_PROPERTIES.keys()
 ALL_STR_OPS = [OP_PROPERTIES[op][2] for op in ALL_OPS]
-
 ALLOWED_FOR_NUMS = string.digits + ",."
+
+
+class FuncKind(enum.Enum):
+    Sin = 0
+    Cos = 1
+    Tan = 2
+    Log = 3
+    Ln = 4
+    Exp = 5
+    Abs = 6
+    Sqrt = 7
+
+
+class FuncToken(Token):
+    def __init__(self, kind: FuncKind) -> None:
+        self.kind = kind
+        super().__init__()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.kind})"
 
 
 class TokenizerError(Exception):
@@ -150,7 +174,9 @@ class RPNCalculator:
                 token = OpToken(OpKind.Add)
             case "-":
                 if self.tokens:
-                    if isinstance(self.tokens[-1], OpToken):
+                    if isinstance(self.tokens[-1], OpToken) or isinstance(
+                        self.tokens[-1], FuncToken
+                    ):
                         token = OpToken(OpKind.UnaryMinus)
                     else:
                         token = OpToken(OpKind.Sub)
@@ -184,6 +210,30 @@ class RPNCalculator:
         self.cursor += 1
         return token
 
+    def tokenize_func(self) -> Token:
+        val = ""
+        while (not self._done()) and self._at_cursor in string.ascii_letters:
+            val += self._at_cursor
+            self.cursor += 1
+        match val:
+            case "sin":
+                token = FuncToken(FuncKind.Sin)
+            case "cos":
+                token = FuncToken(FuncKind.Cos)
+            case "tan":
+                token = FuncToken(FuncKind.Tan)
+            case "log":
+                token = FuncToken(FuncKind.Log)
+            case "exp":
+                token = FuncToken(FuncKind.Exp)
+            case "abs":
+                token = FuncToken(FuncKind.Abs)
+            case "sqrt":
+                token = FuncToken(FuncKind.Sqrt)
+            case _:
+                raise TokenizerError(f"Expected a function, got {val}")
+        return token
+
     def tokenize(self) -> list[Token]:
         """
         Tokenizes the input string.
@@ -199,6 +249,8 @@ class RPNCalculator:
                 self.tokens.append(self.tokenize_op())
             elif self._at_cursor in "()":
                 self.tokens.append(self.tokenize_paren())
+            elif self._at_cursor in string.ascii_letters:
+                self.tokens.append(self.tokenize_func())
             elif self._at_cursor in string.whitespace:
                 self.cursor += 1
             else:
@@ -219,7 +271,7 @@ class RPNCalculator:
             list[Token]: A list of tokens in RPN.
         """
         output_q: list[Token] = []
-        op_stack: list[ParenToken | OpToken] = []
+        op_stack: list[ParenToken | OpToken | FuncToken] = []
         for token in tokens:
             match token:
                 case ParenToken() as paren:
@@ -234,6 +286,9 @@ class RPNCalculator:
                         if op_stack[-1] != ParenToken(ParenKind.Left):
                             raise ParserError("mismatched parentheses")
                         op_stack.pop(-1)
+                        if op_stack:
+                            if isinstance(op_stack[-1], FuncToken):
+                                output_q.append(op_stack.pop(-1))
 
                 case OpToken() as op:
                     while op_stack and (
@@ -251,6 +306,9 @@ class RPNCalculator:
 
                 case NumberToken() as num:
                     output_q.append(num)
+
+                case FuncToken() as func:
+                    op_stack.append(func)
                 case _:
                     raise AssertionError("unreachable")
         while op_stack:
@@ -273,7 +331,10 @@ class RPNCalculator:
                         if op.op == OpKind.Add:
                             stack.append(stack.pop(-1) + stack.pop(-1))
                         elif op.op == OpKind.Sub:
-                            stack.append(-stack.pop(-1) + stack.pop(-1))
+                            if len(stack) < 2:
+                                stack[-1] = -stack[-1]
+                            else:
+                                stack.append(-stack.pop(-1) + stack.pop(-1))
                         elif op.op == OpKind.Mul:
                             stack.append(stack.pop(-1) * stack.pop(-1))
                         elif op.op == OpKind.Div:
@@ -287,9 +348,29 @@ class RPNCalculator:
                             raise AssertionError("should be unreachable")
                     case NumberToken() as num:
                         stack.append(float(num.val))
+                    case FuncToken() as func:
+                        if func.kind == FuncKind.Sin:
+                            stack.append(math.sin(stack.pop(-1)))
+                        elif func.kind == FuncKind.Cos:
+                            stack.append(math.cos(stack.pop(-1)))
+                        elif func.kind == FuncKind.Tan:
+                            stack.append(math.tan(stack.pop(-1)))
+                        elif func.kind == FuncKind.Ln:
+                            stack.append(math.log(stack.pop(-1)))
+                        elif func.kind == FuncKind.Log:
+                            stack.append(math.log(stack.pop(-1), 10))
+                        elif func.kind == FuncKind.Exp:
+                            stack.append(math.exp(stack.pop(-1)))
+                        elif func.kind == FuncKind.Abs:
+                            stack.append(math.fabs(stack.pop(-1)))
+                        elif func.kind == FuncKind.Sqrt:
+                            stack.append(math.sqrt(stack.pop(-1)))
+                        else:
+                            raise AssertionError("should be unreachable")
                     case _:
                         raise AssertionError("unreachable")
             except IndexError:
+
                 raise ParserError("too many operators")
         return stack[-1]
 
