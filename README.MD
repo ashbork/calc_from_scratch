@@ -12,3 +12,20 @@ Clone the repo, then...
 python -m pip install -r requirements.txt
 python run.py <expression>
 ```
+
+## Potential TODO (if I feel like it)
+
+- Add support for functions
+- Add support for variables?
+- Make a GUI
+- Refactor the code to be more readable
+
+~~Probably not, though.~~
+
+## License
+
+Licensed under the [MIT license](LICENSE).
+
+## Contributing
+
+Why?
