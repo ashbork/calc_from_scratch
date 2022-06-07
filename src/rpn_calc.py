@@ -8,11 +8,6 @@ class Assoc(enum.Enum):
     Right = 1
 
 
-class ParenKind(enum.Enum):
-    Left = 0
-    Right = 1
-
-
 class Token(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -34,14 +29,6 @@ class OpToken(Token):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.op})"
-
-
-class ParenToken(Token):
-    def __init__(self, kind: ParenKind) -> None:
-        self.kind = kind
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.kind})"
 
 
 OP_PROPERTIES = {
