@@ -131,6 +131,12 @@ class RPNCalculator:
                 self.cursor += 1
             else:
                 raise TokenizerError(f"Expected valid token, got {current_char}")
+        # if two tokens of the same type are next to each other, raise an error
+        for i in range(len(tokens)):
+            if isinstance(tokens[i], type(tokens[i + 1])):
+                raise TokenizerError(
+                    f"Token of type {tokens[i]} followed by another of the same type."
+                )
         return tokens
 
     def to_rpn(self, tokens: list[Token]) -> list[Token]:
