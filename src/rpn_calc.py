@@ -122,17 +122,17 @@ class RPNCalculator:
         """
         tokens: list[Token] = []
         while not self._done():
-            current_char = self.input[self.cursor]
-            if current_char in string.digits:
+
+            if self._at_cursor in string.digits:
                 tokens.append(self.tokenize_num())
-            elif current_char in ALL_OPS:
+            elif self._at_cursor in ALL_OPS:
                 tokens.append(self.tokenize_op())
-            elif current_char in string.whitespace:
+            elif self._at_cursor in string.whitespace:
                 self.cursor += 1
             else:
-                raise TokenizerError(f"Expected valid token, got {current_char}")
+                raise TokenizerError(f"Expected valid token, got {self._at_cursor}")
         # if two tokens of the same type are next to each other, raise an error
-        for i in range(len(tokens)):
+        for i in range(len(tokens) - 1):
             if isinstance(tokens[i], type(tokens[i + 1])):
                 raise TokenizerError(
                     f"Token of type {tokens[i]} followed by another of the same type."
