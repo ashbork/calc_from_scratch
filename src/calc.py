@@ -36,11 +36,21 @@ class NumberToken(Token):
         return f"{self.__class__.__name__}({self.val})"
 
 
+class OpKind(enum.Enum):
+    Add = 0
+    Sub = 1
+    Mul = 2
+    Div = 3
+    Pow = 4
+    UnaryMinus = 5
+
+
 class OpToken(Token):
-    def __init__(self, op: str) -> None:
+    def __init__(self, op: OpKind) -> None:
         self.op = op
         self.precedence = OP_PROPERTIES[self.op][0]
         self.associativity = OP_PROPERTIES[self.op][1]
+        self.as_str = OP_PROPERTIES[self.op][2]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.op})"
@@ -52,15 +62,15 @@ class OpToken(Token):
 
 
 OP_PROPERTIES = {
-    "*": (3, Assoc.Left),
-    "/": (3, Assoc.Left),
-    "+": (2, Assoc.Left),
-    "-": (2, Assoc.Left),
-    "^": (4, Assoc.Right),
-    # "(": (0, Assoc.Left),
-    # ")": (0, Assoc.Left),
+    OpKind.Add: (2, Assoc.Left, "+"),
+    OpKind.Sub: (2, Assoc.Left, "-"),
+    OpKind.Mul: (3, Assoc.Left, "*"),
+    OpKind.Div: (3, Assoc.Left, "/"),
+    OpKind.Pow: (4, Assoc.Right, "^"),
+    OpKind.UnaryMinus: (5, Assoc.Left, "-"),
 }
 ALL_OPS = OP_PROPERTIES.keys()
+ALL_STR_OPS = [OP_PROPERTIES[op][2] for op in ALL_OPS]
 
 ALLOWED_FOR_NUMS = string.digits + ",."
 
@@ -129,7 +139,27 @@ class RPNCalculator:
         Returns:
             Token: an operation
         """
-        token = OpToken(self.input[self.cursor])
+        token = self._at_cursor
+        match token:
+            case "+":
+                token = OpToken(OpKind.Add)
+            case "-":
+                if self.tokens:
+                    if isinstance(self.tokens[-1], OpToken):
+                        token = OpToken(OpKind.UnaryMinus)
+                    else:
+                        token = OpToken(OpKind.Sub)
+                else:
+                    token = OpToken(OpKind.UnaryMinus)
+            case "*":
+                token = OpToken(OpKind.Mul)
+            case "/":
+                token = OpToken(OpKind.Div)
+            case "^":
+                token = OpToken(OpKind.Pow)
+            case _:
+                raise TokenizerError(f"Expected an operator, got {token}")
+
         self.cursor += 1
         return token
 
@@ -253,17 +283,19 @@ class RPNCalculator:
             try:
                 match token:
                     case OpToken() as op:
-                        if op.op == "+":
+                        if op.op == OpKind.Add:
                             stack.append(stack.pop(-1) + stack.pop(-1))
-                        elif op.op == "-":
+                        elif op.op == OpKind.Sub:
                             stack.append(-stack.pop(-1) + stack.pop(-1))
-                        elif op.op == "*":
+                        elif op.op == OpKind.Mul:
                             stack.append(stack.pop(-1) * stack.pop(-1))
-                        elif op.op == "/":
+                        elif op.op == OpKind.Div:
                             stack.append(1 / stack.pop(-1) * stack.pop(-1))
-                        elif op.op == "^":
+                        elif op.op == OpKind.Pow:
                             exp = stack.pop(-1)
                             stack.append(stack.pop(-1) ** exp)
+                        elif op.op == OpKind.UnaryMinus:
+                            stack.append(-stack.pop(-1))
                         else:
                             raise AssertionError("should be unreachable")
                     case NumberToken() as num:
