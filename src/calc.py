@@ -30,6 +30,11 @@ class OpToken(Token):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.op})"
 
+    def __eq__(self, other):
+        if isinstance(other, OpToken):
+            return self.op == other.op
+        return False
+
 
 OP_PROPERTIES = {
     "*": (3, Assoc.Left),
@@ -133,9 +138,15 @@ class RPNCalculator:
                 raise TokenizerError(f"Expected valid token, got {self._at_cursor}")
         # if two tokens of the same type are next to each other, raise an error
         for i in range(len(tokens) - 1):
-            if isinstance(tokens[i], type(tokens[i + 1])):
+            if tokens[i] == OpToken("(") or tokens[i] == OpToken(")"):  # ignore
+                continue
+            elif tokens[i + 1] == OpToken("(") or tokens[i + 1] == OpToken(
+                ")"
+            ):  # ignore
+                continue
+            elif isinstance(tokens[i], type(tokens[i + 1])):
                 raise TokenizerError(
-                    f"Token of type {tokens[i]} followed by another of the same type."
+                    f"Token of type {tokens[i]} followed by another of the same type ({tokens[i+1]}) {tokens}."
                 )
         return tokens
 
