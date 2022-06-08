@@ -176,7 +176,7 @@ class RPNCalculator:
             if self._at_cursor in ",.":
                 if point:
                     raise TokenizerError(
-                        "Expected one or less .|, symbols in number, got more"
+                        f"Expected one or less .|, symbols in number, got {val}"
                     )
                 point = True
             val += self._at_cursor
@@ -245,7 +245,6 @@ class RPNCalculator:
                 token = ConstantToken(ConstantKind.E)
             case _:
                 raise TokenizerError(f"Expected mathematical constant, got {val}")
-        self.cursor += 1
         return token
 
     def tokenize_func(self) -> FuncToken:
